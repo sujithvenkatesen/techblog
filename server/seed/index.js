@@ -1,14 +1,13 @@
+
 import { Category, Tag, Author } from '../models/Taxonomy.js';
 import Post from '../models/Post.js';
 import User from '../models/User.js';
 import { categories, authors, tags, posts } from './data.js';
 
-
-
 async function ensureTaxonomy() {
   const models = [
     { Model: Category, items: categories },
-    { Model: Tag, items: tags },
+    { Model: Tag, items: tags.map((name) => ({ name })) },
     { Model: Author, items: authors },
   ];
 
@@ -33,9 +32,9 @@ async function ensureTaxonomy() {
       );
     }
   }
+
+  console.log('[seed] taxonomy created or updated');
 }
-
-
 
 export async function seedAdmin() {
   if ((await User.countDocuments()) > 0) return;
@@ -63,24 +62,41 @@ export async function seedAdmin() {
 export async function seedAll() {
   await ensureTaxonomy();
   await seedAdmin();
+
   if ((await Post.countDocuments()) > 0) return;
 
-  const cats = Object.fromEntries((await Category.find()).map((c) => [c.name, c._id]));
-  const auths = Object.fromEntries((await Author.find()).map((a) => [a.name, a._id]));
-  const tagDocs = Object.fromEntries((await Tag.find()).map((t) => [t.name, t._id]));
+  const cats = Object.fromEntries(
+    (await Category.find()).map((c) => [c.name, c._id])
+  );
+
+  const auths = Object.fromEntries(
+    (await Author.find()).map((a) => [a.name, a._id])
+  );
+
+  const tagDocs = Object.fromEntries(
+    (await Tag.find()).map((t) => [t.name, t._id])
+  );
 
   for (const p of posts) {
-    const { daysAgo, category, author, tags: tagNames, ...rest } = p;
+    const {
+      daysAgo,
+      category,
+      author,
+      tags: tagNames,
+      ...rest
+    } = p;
+
     await Post.create({
       ...rest,
       category: cats[category],
       author: auths[author],
-      tags: tagNames.map((n) => tagDocs[n]).filter(Boolean),
+      tags: tagNames.map((name) => tagDocs[name]).filter(Boolean),
       status: 'published',
       publishedAt: new Date(Date.now() - daysAgo * 86400000),
       seoTitle: `${rest.title} | Blockwise Tech Blog`,
       metaDescription: rest.excerpt,
     });
   }
+
   console.log(`[seed] inserted ${posts.length} sample posts`);
 }
