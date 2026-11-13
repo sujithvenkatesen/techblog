@@ -3,16 +3,37 @@ import Post from '../models/Post.js';
 import User from '../models/User.js';
 import { categories, authors, tags, posts } from './data.js';
 
+
 async function ensureTaxonomy() {
-  for (const c of categories) await Category.updateOne({ name: c.name }, { $setOnInsert: c }, { upsert: true });
-  for (const t of tags) await Tag.updateOne({ name: t }, { $setOnInsert: { name: t } }, { upsert: true });
-  for (const a of authors) await Author.updateOne({ name: a.name }, { $setOnInsert: a }, { upsert: true });
-  // Slugs are generated in pre-validate hooks, which updateOne skips: backfill.
-  for (const Model of [Category, Tag, Author]) {
-    const docs = await Model.find({ $or: [{ slug: null }, { slug: { $exists: false } }] });
-    for (const d of docs) await d.save();
+  const models = [
+    { Model: Category, items: categories },
+    { Model: Tag, items: tags },
+    { Model: Author, items: authors },
+  ];
+
+  for (const { Model, items } of models) {
+    for (const item of items) {
+      const slug = item.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      await Model.updateOne(
+        { name: item.name },
+        {
+          $setOnInsert: {
+            ...item,
+            slug,
+          },
+          $set: { slug },
+        },
+        { upsert: true }
+      );
+    }
   }
 }
+
 
 
 export async function seedAdmin() {
