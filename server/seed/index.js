@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import { categories, authors, tags, posts } from './data.js';
 
 
+
 async function ensureTaxonomy() {
   const models = [
     { Model: Category, items: categories },
@@ -19,13 +20,13 @@ async function ensureTaxonomy() {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
 
+      const insertFields = { ...item };
+      delete insertFields.slug;
+
       await Model.updateOne(
         { name: item.name },
         {
-          $setOnInsert: {
-            ...item,
-            slug,
-          },
+          $setOnInsert: insertFields,
           $set: { slug },
         },
         { upsert: true }
